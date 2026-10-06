@@ -1,0 +1,82 @@
+core:
+  mode: operator
+  language: auto
+  local_first: true
+
+paths:
+  data_dir: ~/.local/share/hive
+  state_dir: ~/.local/state/hive
+  config_dir: ~/.config/hive
+
+models:
+  local:
+    provider: ollama
+    base_url: http://127.0.0.1:11434
+    model: qwen2.5:7b-instruct-q4_K_M
+  router:
+    model: qwen2.5:3b-instruct
+  cloud_fallback:
+    enabled: false
+    provider: openai_compatible
+    api_key_env: HIVE_CLOUD_API_KEY
+    base_url: null
+    model: null
+
+multi_agent:
+  enabled: true
+  max_active_agents: 3
+  max_executing_agents: 2
+  max_local_llm_requests: 1
+  max_cloud_llm_requests: 2
+
+retry:
+  max_retries: 2
+  initial_delay_seconds: 2
+  backoff_multiplier: 2
+  jitter: true
+
+resource_management:
+  enforce_cleanup: true
+  cleanup_timeout_seconds: 10
+  watchdog_interval_seconds: 15
+  retain_failed_artifacts: true
+
+approval:
+  require_plan_approval: true
+  require_high_risk_approval: true
+  approval_expiry_minutes: 30
+
+performance:
+  cache_enabled: true
+  stream_llm_output: true
+  lazy_load_modules: true
+  max_parallel_web_requests: 4
+
+observability:
+  structured_logs: true
+  metrics_enabled: true
+  audit_log: true
+
+security:
+  block_forbidden_by_default: true
+  redact_secrets: true
+  sandbox_experiments: true
+
+browser:
+  enabled: false
+  isolated_profile: true
+  visible: true
+  max_tabs_per_agent: 5
+
+voice:
+  enabled: false
+  stt_engine: faster_whisper
+  tts_engine: piper
+  language_mode: auto
+
+timeouts:
+  llm_request_seconds: 120
+  web_request_seconds: 30
+  command_default_seconds: 300
+  sudo_prompt_seconds: 120
+  approval_expiry_minutes: 30
