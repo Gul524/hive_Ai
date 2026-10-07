@@ -37,12 +37,42 @@ class LockStore:
         with open_database(self.database_file) as connection:
             connection.execute("DELETE FROM agent_locks WHERE lock_key=? AND owner_agent=?", (key, agent_id))
 
+    def renew(self, key: str, *, agent_id: str, task_id: str, ttl_seconds: int) -> None:
+        with open_database(self.database_file) as connection:
+            result = connection.execute(
+                "UPDATE agent_locks SET expires_at=? WHERE lock_key=? AND owner_agent=? AND task_id=?",
+                ((utc_now() + timedelta(seconds=ttl_seconds)).isoformat(), key, agent_id, task_id),
+            )
+            if result.rowcount != 1:
+                raise LockBusyError(f"Lock {key} is no longer held by this task")
+
+    def prune_expired(self) -> int:
+        with open_database(self.database_file) as connection:
+            result = connection.execute("DELETE FROM agent_locks WHERE expires_at<=?",
+                                        (utc_now().isoformat(),))
+            return result.rowcount
+
     @asynccontextmanager
-    async def hold(self, key: str, *, agent_id: str, task_id: str) -> AsyncIterator[None]:
-        self.acquire(key, agent_id=agent_id, task_id=task_id)
+    async def hold(self, key: str, *, agent_id: str, task_id: str,
+                   ttl_seconds: int = 600) -> AsyncIterator[None]:
+        self.acquire(key, agent_id=agent_id, task_id=task_id, ttl_seconds=ttl_seconds)
+        async def heartbeat() -> None:
+            while True:
+                await asyncio.sleep(max(1, ttl_seconds // 3))
+                self.renew(key, agent_id=agent_id, task_id=task_id,
+                           ttl_seconds=ttl_seconds)
+
+        heartbeat_task = asyncio.create_task(heartbeat())
         try:
             yield
+            if heartbeat_task.done() and not heartbeat_task.cancelled():
+                heartbeat_task.result()
         finally:
+            heartbeat_task.cancel()
+            try:
+                await heartbeat_task
+            except asyncio.CancelledError:
+                pass
             self.release(key, agent_id=agent_id)
 
 

@@ -31,17 +31,29 @@ def diagnostics(config: HiveConfig, paths: HivePaths) -> list[tuple[str, str, st
                 tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
                 pending = (connection.execute("SELECT count(*) FROM approvals WHERE status='pending'").fetchone()[0]
                            if "approvals" in tables else 0)
-                leaks = (connection.execute("SELECT count(*) FROM resources WHERE state!='released'").fetchone()[0]
+                open_resources = (connection.execute("SELECT count(*) FROM resources WHERE state!='released'").fetchone()[0]
                          if "resources" in tables else 0)
             checks.append(("SQLite", "OK" if mode == "wal" else "WARN", mode))
             checks.append(("Approvals", "OK", f"{pending} pending"))
-            checks.append(("Resource leaks", "OK" if leaks == 0 else "WARN", str(leaks)))
+            checks.append(("Open resources", "OK", str(open_resources)))
         except sqlite3.Error as exc:
             checks.append(("SQLite", "FAIL", str(exc)))
     else:
         checks.append(("SQLite", "WARN", "Run hive init"))
     for binary in ("ollama", "dnf", "rpm", "systemctl"):
         checks.append((binary, "OK" if shutil.which(binary) else "WARN", shutil.which(binary) or "not found"))
+    if config.browser.enabled:
+        checks.append(("Playwright", "OK" if importlib.util.find_spec("playwright") else "WARN",
+                       "installed" if importlib.util.find_spec("playwright") else "install .[browser]"))
+    if config.voice.enabled:
+        for module in ("faster_whisper", "piper"):
+            checks.append((module, "OK" if importlib.util.find_spec(module) else "WARN",
+                           "installed" if importlib.util.find_spec(module) else "install .[voice]"))
+        for binary in ("pw-record", "ffplay"):
+            checks.append((binary, "OK" if shutil.which(binary) else "WARN", shutil.which(binary) or "not found"))
+    if config.gui.enabled:
+        for binary in ("Xvfb", "xdotool", "firefox", "import", "compare"):
+            checks.append((binary, "OK" if shutil.which(binary) else "WARN", shutil.which(binary) or "not found"))
     try:
         response = httpx.get(f"{str(config.models.local.base_url).rstrip('/')}/api/tags", timeout=2)
         response.raise_for_status()

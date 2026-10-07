@@ -7,6 +7,7 @@ from pathlib import Path
 from hive.core.checkpoint import TaskStore, TransitionError
 from hive.core.models import TaskPhase
 from hive.execution.command_plan import CommandPlan
+from hive.observability.metrics import MetricsStore
 
 
 def prepare_task_for_approval(database_file: Path, plan: CommandPlan,
@@ -52,3 +53,4 @@ def finish_execution(database_file: Path, task_id: str, *, success: bool) -> Non
             store.transition(task_id, phase)
     else:
         store.transition(task_id, TaskPhase.FAILED)
+    MetricsStore(database_file).add("task_success" if success else "task_failure")

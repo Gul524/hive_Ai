@@ -13,10 +13,11 @@ from hive.models.router import ModelRouter
 T = TypeVar("T", bound=BaseModel)
 
 
-async def structured_response(router: ModelRouter, request: ModelRequest, schema: type[T]) -> T:
+async def structured_response(router: ModelRouter, request: ModelRequest, schema: type[T],
+                              *, allow_cloud: bool = False) -> T:
     current = request
     for attempt in range(2):
-        response = await router.complete(current)
+        response = await router.complete(current, allow_cloud=allow_cloud)
         try:
             return schema.model_validate(json.loads(response.text))
         except (json.JSONDecodeError, ValidationError) as exc:

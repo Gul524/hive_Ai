@@ -196,3 +196,13 @@ class TaskStore:
             task = self._read(connection, task_id)
             self._save(connection, task, event_type, detail)
             return task
+
+    def patch_state(self, task_id: str, changes: dict, *, event_type: str) -> Task:
+        with open_database(self.database_file) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            task = self._read(connection, task_id)
+            if task.status in {TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELED}:
+                raise TransitionError("Terminal task cannot be changed")
+            task.state.update(changes)
+            self._save(connection, task, event_type)
+            return task

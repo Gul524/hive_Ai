@@ -155,6 +155,10 @@ class ApprovalStore:
             )
         except TransitionError:
             pass  # Standalone approval requests need not have a task record.
+        from hive.observability.metrics import MetricsStore
+        MetricsStore(self.database_file).add(
+            "approval_wait_seconds", (request.decided_at - request.created_at).total_seconds()
+        )
         return request
 
     def history(self, approval_id: str) -> list[dict]:

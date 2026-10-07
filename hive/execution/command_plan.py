@@ -25,10 +25,11 @@ MAX_FILE_BYTES = 1_000_000
 
 
 class VerificationCheck(BaseModel):
-    kind: Literal["file_content", "command_success"]
+    kind: Literal["file_content", "command_success", "command_exit", "command_output"]
     path: Path | None = None
     expected_content: str | None = None
     command_argv: list[str] | None = None
+    expected_exit_codes: list[int] = Field(default_factory=lambda: [0])
 
 
 class ExecutionStep(BaseModel):
@@ -48,6 +49,9 @@ class ExecutionStep(BaseModel):
     backup_required: bool = False
     sandboxable: bool = True
     timeout_seconds: int = Field(default=300, gt=0)
+    working_directory: Path | None = None
+    environment: dict[str, str] = Field(default_factory=dict)
+    pty: bool = False
     verification: list[VerificationCheck] = Field(default_factory=list)
     rollback_summary: str | None = None
 
@@ -109,10 +113,19 @@ def plan_file_write(*, task_id: str, agent_id: str, workspace_root: Path,
 
 def plan_commands(*, task_id: str, agent_id: str, workspace_root: Path,
                   commands: list[tuple[str, list[str], list[str]]]) -> CommandPlan:
+    return plan_command_checks(
+        task_id=task_id, agent_id=agent_id, workspace_root=workspace_root,
+        commands=[(description, argv, VerificationCheck(kind="command_success", command_argv=verify_argv))
+                  for description, argv, verify_argv in commands],
+    )
+
+
+def plan_command_checks(*, task_id: str, agent_id: str, workspace_root: Path,
+                        commands: list[tuple[str, list[str], VerificationCheck]]) -> CommandPlan:
     steps: list[ExecutionStep] = []
-    for description, argv, verify_argv in commands:
+    for description, argv, check in commands:
         decision = classify_command(argv)
-        verification = classify_command(verify_argv)
+        verification = classify_command(check.command_argv or [])
         if not decision.allowed or not verification.allowed or verification.risk_level != RiskLevel.LOW:
             raise PlanError("Command or verification is outside the allowlist")
         steps.append(ExecutionStep(
@@ -120,12 +133,14 @@ def plan_commands(*, task_id: str, agent_id: str, workspace_root: Path,
             command_argv=argv, risk_level=decision.risk_level,
             idempotent=decision.risk_level == RiskLevel.LOW,
             requires_sudo=argv[0] == "sudo", sandboxable=False,
-            verification=[VerificationCheck(kind="command_success", command_argv=verify_argv)],
+            verification=[check],
             rollback_summary="Manual review required for system changes",
         ))
     if not steps:
         raise PlanError("Plan requires at least one step")
-    risk = RiskLevel.HIGH if any(s.risk_level == RiskLevel.HIGH for s in steps) else RiskLevel.LOW
+    risk = (RiskLevel.HIGH if any(s.risk_level == RiskLevel.HIGH for s in steps)
+            else RiskLevel.MEDIUM if any(s.risk_level == RiskLevel.MEDIUM for s in steps)
+            else RiskLevel.LOW)
     return CommandPlan(task_id=task_id, agent_id=agent_id, summary="; ".join(s.description for s in steps),
                        workspace_root=workspace_root.resolve(), steps=steps, risk_level=risk,
                        expected_changes=[s.description for s in steps],

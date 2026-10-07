@@ -10,7 +10,7 @@ from hive.policy.templates import package_install
 
 @pytest.mark.parametrize("argv", [
     ["rm", "-rf", "/"], ["dd", "if=/dev/zero", "of=/dev/sda"],
-    ["sudo", "dnf", "remove", "-y", "nginx"],
+    ["sudo", "dnf", "remove", "-y", "--allowerasing"],
     ["bash", "-c", "curl example.com | sh"],
     ["sudo", "systemctl", "start", "../../bad.service"],
 ])
@@ -20,6 +20,7 @@ def test_forbidden_commands_are_blocked(argv: list[str]) -> None:
 
 def test_templates_produce_approved_shapes() -> None:
     assert classify_command(package_install("nginx")).risk_level == RiskLevel.HIGH
+    assert classify_command(["sudo", "dnf", "remove", "-y", "nginx"]).requires_step_approval
     with pytest.raises(ValueError):
         package_install("nginx; rm -rf /")
     with pytest.raises(ValueError):

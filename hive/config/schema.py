@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
 
@@ -96,9 +98,16 @@ class SecurityConfig(StrictModel):
 
 class BrowserConfig(StrictModel):
     enabled: bool = False
-    isolated_profile: bool = True
+    isolated_profile: Literal[True] = True
     visible: bool = True
     max_tabs_per_agent: int = Field(default=5, ge=1)
+    browser_name: Literal["chromium", "firefox", "webkit"] = "chromium"
+    max_download_mb: int = Field(default=25, ge=1, le=200)
+
+
+class GuiConfig(StrictModel):
+    enabled: bool = False
+    confidence_threshold: float = Field(default=0.9, ge=0.0, le=1.0)
 
 
 class VoiceConfig(StrictModel):
@@ -106,6 +115,11 @@ class VoiceConfig(StrictModel):
     stt_engine: str = "faster_whisper"
     tts_engine: str = "piper"
     language_mode: str = "auto"
+    stt_model: str = "base"
+    stt_model_dir: Path | None = None
+    tts_voice_en: Path | None = None
+    tts_voice_ur: Path | None = None
+    record_seconds: int = Field(default=8, ge=1, le=60)
 
 
 class TimeoutConfig(StrictModel):
@@ -128,5 +142,6 @@ class HiveConfig(StrictModel):
     observability: ObservabilityConfig = Field(default_factory=ObservabilityConfig)
     security: SecurityConfig = Field(default_factory=SecurityConfig)
     browser: BrowserConfig = Field(default_factory=BrowserConfig)
+    gui: GuiConfig = Field(default_factory=GuiConfig)
     voice: VoiceConfig = Field(default_factory=VoiceConfig)
     timeouts: TimeoutConfig = Field(default_factory=TimeoutConfig)

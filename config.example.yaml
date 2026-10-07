@@ -67,12 +67,23 @@ browser:
   isolated_profile: true
   visible: true
   max_tabs_per_agent: 5
+  browser_name: chromium
+  max_download_mb: 25
+
+gui:
+  enabled: false
+  confidence_threshold: 0.9
 
 voice:
   enabled: false
   stt_engine: faster_whisper
   tts_engine: piper
   language_mode: auto
+  stt_model: base
+  stt_model_dir: null
+  tts_voice_en: null
+  tts_voice_ur: null
+  record_seconds: 8
 
 timeouts:
   llm_request_seconds: 120

@@ -5,6 +5,7 @@ import pytest
 
 from hive.core.approvals import ApprovalStore
 from hive.execution.command_plan import PlanStore, plan_file_write
+from hive.execution.backups import BackupStore
 from hive.execution.executor import ExecutionError, execute_plan
 
 
@@ -59,3 +60,27 @@ def test_failed_file_verification_restores_backup(tmp_path: Path, monkeypatch: p
         asyncio.run(execute_plan(plan.plan_id, database_file=database))
     assert target.read_text() == "original\n"
     assert not list(target.parent.glob(".*hive-backup"))
+
+
+def test_file_backup_can_be_restored_with_new_approval(tmp_path: Path) -> None:
+    database = tmp_path / "hive.db"
+    target = tmp_path / "work/result.txt"
+    target.parent.mkdir()
+    target.write_text("original\n")
+    target.chmod(0o640)
+    first = plan_file_write(task_id="t1", agent_id="a1", workspace_root=target.parent,
+                            target_path=target, content="replacement\n")
+    approval = PlanStore(database).add(first)[0]
+    ApprovalStore(database).decide(approval.approval_id, approve=True)
+    asyncio.run(execute_plan(first.plan_id, database_file=database))
+    backups = BackupStore(database, tmp_path / "backups")
+    records = backups.list(task_id="t1")
+    assert len(records) == 1
+    assert backups.verified_content(records[0].backup_id)[1] == "original\n"
+    restore = backups.restore_plan(records[0].backup_id, task_id="t2", agent_id="a1",
+                                   workspace_root=target.parent)
+    approval = PlanStore(database).add(restore)[0]
+    ApprovalStore(database).decide(approval.approval_id, approve=True)
+    asyncio.run(execute_plan(restore.plan_id, database_file=database))
+    assert target.read_text() == "original\n"
+    assert target.stat().st_mode & 0o777 == 0o640

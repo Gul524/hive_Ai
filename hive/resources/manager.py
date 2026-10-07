@@ -18,6 +18,9 @@ class ResourceType(StrEnum):
     PROCESS = "process"
     TEMP_FILE = "temp_file"
     BROWSER = "browser"
+    BROWSER_PAGE = "browser_page"
+    BROWSER_CONTEXT = "browser_context"
+    BROWSER_PROCESS = "browser_process"
     SCREEN = "screen"
     LOCK = "lock"
     MODEL_REQUEST = "model_request"
@@ -119,3 +122,13 @@ class ResourceManager:
         now = utc_now()
         return [item for item in self.list(leaks_only=True)
                 if item.last_used_at + timedelta(seconds=item.timeout_seconds) < now]
+
+    def mark_released(self, resource_id: str, *, verified: bool) -> None:
+        """Reconcile a persistent resource after the acquiring process exited."""
+        handle = next((item for item in self.list() if item.resource_id == resource_id), None)
+        if handle is None:
+            raise KeyError(resource_id)
+        handle.state = ResourceState.RELEASED if verified else ResourceState.RELEASE_FAILED
+        handle.last_used_at = utc_now()
+        self._save(handle)
+        self._callbacks.pop(resource_id, None)

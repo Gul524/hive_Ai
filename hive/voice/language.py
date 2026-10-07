@@ -12,5 +12,8 @@ ROMAN_URDU_WORDS = {
 
 
 def detect_language(text: str) -> LanguageCode:
+    if re.search(r"[\u0600-\u06ff]", text):
+        return LanguageCode.UR_ROMAN
     words = set(re.findall(r"[a-z]+", text.lower()))
-    return LanguageCode.UR_ROMAN if len(words & ROMAN_URDU_WORDS) >= 1 else LanguageCode.EN
+    strong = {"karo", "karna", "mujhe", "aap", "kaise", "kyun", "chahiye", "batao", "dikhao"}
+    return LanguageCode.UR_ROMAN if (words & strong or len(words & ROMAN_URDU_WORDS) >= 2) else LanguageCode.EN
