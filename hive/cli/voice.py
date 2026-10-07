@@ -82,3 +82,28 @@ async def download_stt_model(config: HiveConfig) -> None:
         raise
     if process.returncode:
         raise RuntimeError(f"STT model download failed: {stderr.decode(errors='replace')[:400]}")
+
+
+async def download_tts_voices(data_dir: Path) -> tuple[Path, Path]:
+    """Download the documented English and Urdu Piper voices locally."""
+    voice_dir = data_dir / "models" / "piper"
+    voice_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+    names = ("en_US-lessac-medium", "ur_PK-fasih-medium")
+    process = await asyncio.create_subprocess_exec(
+        sys.executable, "-m", "piper.download_voices", "--data-dir", str(voice_dir),
+        *names, stdin=asyncio.subprocess.DEVNULL,
+        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+    )
+    try:
+        _, stderr = await asyncio.wait_for(process.communicate(), 1200)
+    except (asyncio.TimeoutError, asyncio.CancelledError):
+        process.kill()
+        await process.communicate()
+        raise
+    if process.returncode:
+        raise RuntimeError(f"Piper voice download failed: {stderr.decode(errors='replace')[-400:]}")
+    paths = tuple(voice_dir / f"{name}.onnx" for name in names)
+    if any(not path.is_file() or path.stat().st_size == 0
+           or not path.with_suffix(path.suffix + ".json").is_file() for path in paths):
+        raise RuntimeError("Piper voice files are incomplete")
+    return paths

@@ -18,8 +18,8 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=8,<10"]
 browser = ["playwright>=1.48,<2"]
-voice = ["faster-whisper>=1.1,<2", "piper-tts>=1.2,<2"]
-all = ["playwright>=1.48,<2", "faster-whisper>=1.1,<2", "piper-tts>=1.2,<2"]
+voice = ["faster-whisper>=1.1,<2", "av>=14,<19", "piper-tts>=1.2,<2"]
+all = ["playwright>=1.48,<2", "faster-whisper>=1.1,<2", "av>=14,<19", "piper-tts>=1.2,<2"]
 
 [project.scripts]
 hive = "hive.cli.app:main"

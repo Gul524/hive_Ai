@@ -10,7 +10,7 @@ from hive.core.models import ApprovalRequest, LanguageCode, RiskLevel, utc_now
 from hive.voice.approval import approve_from_voice
 from hive.voice.pipeline import VoicePipeline
 from hive.voice.stt import SpeechToText
-from hive.voice.transliterate import urdu_to_roman
+from hive.voice.transliterate import roman_to_urdu, urdu_to_roman
 from hive.voice.tts import TextToSpeech
 
 
@@ -33,6 +33,8 @@ def test_voice_language_pipeline(tmp_path: Path) -> None:
     assert language == LanguageCode.UR_ROMAN
     output = asyncio.run(pipeline.speak(text, language=language, output=tmp_path / "speech.wav"))
     assert output.read_bytes() == b"RIFFfake"
+    with pytest.raises(FileExistsError):
+        asyncio.run(pipeline.speak(text, language=language, output=output))
 
 
 def test_voice_approval_requires_two_explicit_matches(tmp_path: Path) -> None:
@@ -54,3 +56,4 @@ def test_voice_approval_requires_two_explicit_matches(tmp_path: Path) -> None:
 
 def test_urdu_transliteration() -> None:
     assert urdu_to_roman("مجھے nginx انسٹال کرو") == "mujhe nginx install karo"
+    assert roman_to_urdu("mujhe nginx install karo") == "مجھے nginx انسٹال کرو"

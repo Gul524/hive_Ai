@@ -49,8 +49,20 @@ def diagnostics(config: HiveConfig, paths: HivePaths) -> list[tuple[str, str, st
         for module in ("faster_whisper", "piper"):
             checks.append((module, "OK" if importlib.util.find_spec(module) else "WARN",
                            "installed" if importlib.util.find_spec(module) else "install .[voice]"))
-        for binary in ("pw-record", "ffplay"):
+        for binary in ("pw-record", "pw-play"):
             checks.append((binary, "OK" if shutil.which(binary) else "WARN", shutil.which(binary) or "not found"))
+        for label, model in (("English voice", config.voice.tts_voice_en),
+                             ("Urdu voice", config.voice.tts_voice_ur)):
+            ready = model is not None and model.is_file() and model.with_suffix(model.suffix + ".json").is_file()
+            checks.append((label, "OK" if ready else "WARN",
+                           str(model) if model else "not configured"))
+        model_dir = config.voice.stt_model_dir
+        model_ready = bool(model_dir and model_dir.is_dir() and any(
+            path.is_file() and path.stat().st_size > 0
+            for path in model_dir.glob("models--*/snapshots/*/model.bin")
+        ))
+        checks.append(("STT model cache", "OK" if model_ready else "WARN",
+                       str(model_dir) if model_dir else "default cache"))
     if config.gui.enabled:
         for binary in ("Xvfb", "xdotool", "firefox", "import", "compare"):
             checks.append((binary, "OK" if shutil.which(binary) else "WARN", shutil.which(binary) or "not found"))

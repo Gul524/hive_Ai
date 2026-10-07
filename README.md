@@ -22,9 +22,10 @@ Optional local runtimes:
 .venv/bin/python -m pip install -e '.[browser,voice]'
 .venv/bin/hive browser install-chromium
 .venv/bin/hive voice download-stt-model
+.venv/bin/hive voice download-tts-voices
 ```
 
-Voice recording uses `pw-record`; playback uses `ffplay`. Set `voice.tts_voice_en` and optionally `voice.tts_voice_ur` to local Piper voice model paths. GUI sessions use `Xvfb`, `xdotool`, ImageMagick (`import`, `identify`, `convert`, `compare`), and Firefox. `hive doctor` reports missing tools when the corresponding module is enabled. No model or system package is installed automatically by `hive init`.
+Voice recording uses `pw-record`; playback uses `pw-play`. Set `voice.tts_voice_en` and optionally `voice.tts_voice_ur` to local Piper voice model paths. GUI sessions use `Xvfb`, `xdotool`, ImageMagick (`import`, `identify`, `convert`, `compare`), and Firefox. `hive doctor` reports missing tools when the corresponding module is enabled. No model or system package is installed automatically by `hive init`.
 
 ## Tasks, plans, and approvals
 
@@ -86,7 +87,16 @@ Use `--actions-file actions.json` for multiple actions. For example, `[ {"kind":
 
 ## Voice
 
-Enable `voice.enabled`, install the voice extra, and explicitly download an STT model. Use `hive listen` to record/transcribe or `hive talk` to transcribe, chat, and synthesize a spoken reply. `hive speak "Hello" --output reply.wav` writes speech to a WAV file. Spoken approval only identifies a request; Hive requires the matching approval ID to be typed before a decision.
+Enable `voice.enabled`, install the voice extra, and explicitly download an STT model. `hive voice download-tts-voices` downloads the English lessac and Urdu fasih voices into the Hive data directory; put the printed paths in `voice.tts_voice_en` and `voice.tts_voice_ur`. Use `hive listen` to record/transcribe or `hive talk` to transcribe, chat, and synthesize a spoken reply. `hive speak "Hello" --output reply.wav` writes speech to a WAV file. Spoken approval only identifies a request; Hive requires the matching approval ID to be typed before a decision.
+
+After setup, check the microphone and speaker from your desktop session:
+
+```bash
+.venv/bin/hive listen --seconds 5
+.venv/bin/hive speak "Hello from Hive" --output /tmp/hive-hello.wav --play
+```
+
+Speak during the five-second recording window. `hive talk` also needs the configured Ollama model running; `listen` and `speak` work without it. Roman Urdu synthesis uses a small local word map and may mispronounce unfamiliar words.
 
 ## GUI and screens
 

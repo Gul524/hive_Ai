@@ -9,7 +9,7 @@ from hive.core.models import LanguageCode
 from hive.voice.capture import record_wav
 from hive.voice.language import detect_language
 from hive.voice.stt import FasterWhisperSTT, SpeechToText
-from hive.voice.transliterate import urdu_to_roman
+from hive.voice.transliterate import roman_to_urdu, urdu_to_roman
 from hive.voice.tts import PiperTTS, TextToSpeech
 
 
@@ -40,8 +40,10 @@ class VoicePipeline:
     async def speak(self, text: str, *, language: LanguageCode, output: Path) -> Path:
         if not self.config.voice.enabled:
             raise RuntimeError("Voice is disabled in config")
-        wav = await self.tts.synthesize(text, language=language.value)
+        spoken_text = roman_to_urdu(text) if language == LanguageCode.UR_ROMAN else text
+        wav = await self.tts.synthesize(spoken_text, language=language.value)
         output.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-        output.write_bytes(wav)
+        with output.open("xb") as stream:
+            stream.write(wav)
         output.chmod(0o600)
         return output

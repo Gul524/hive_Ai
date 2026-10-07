@@ -19,7 +19,7 @@ from hive.agents.registry import Agent, AgentRegistry
 from hive.cli.grid import render_grid
 from hive.cli.chat import chat_loop, chat_once
 from hive.cli.chat import build_router
-from hive.cli.voice import listen_command, speak_command, download_stt_model
+from hive.cli.voice import listen_command, speak_command, download_stt_model, download_tts_voices
 from hive.cli.browser import install_chromium
 from hive.browser.plan import BrowserAction, BrowserPlanStore, create_browser_plan
 from hive.browser.executor import execute_browser_plan
@@ -166,6 +166,7 @@ def _parser() -> argparse.ArgumentParser:
     voice = commands.add_parser("voice", help="Manage local speech models")
     voice_commands = voice.add_subparsers(dest="voice_command", required=True)
     voice_commands.add_parser("download-stt-model")
+    voice_commands.add_parser("download-tts-voices")
     browser = commands.add_parser("browser", help="Plan and run isolated browser actions")
     browser_commands = browser.add_subparsers(dest="browser_command", required=True)
     browser_plan = browser_commands.add_parser("plan")
@@ -299,8 +300,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             asyncio.run(speak_command(console, config, args.text, args.output, play=args.play))
             return 0
         if args.command == "voice":
-            asyncio.run(download_stt_model(config))
-            console.print("STT model ready")
+            if args.voice_command == "download-stt-model":
+                asyncio.run(download_stt_model(config))
+                console.print("STT model ready")
+            else:
+                english, urdu = asyncio.run(download_tts_voices(paths.data_dir))
+                console.print(f"English voice: {english}\nUrdu voice: {urdu}")
             return 0
         if args.command == "browser":
             if args.browser_command == "install-chromium":
