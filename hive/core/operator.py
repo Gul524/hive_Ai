@@ -75,7 +75,8 @@ def _action_plan(action: ProposedAction, *, task_id: str, agent_id: str) -> Comm
 async def propose(task_id: str, *, database_file: Path, router: ModelRouter,
                   model: str, sources: ResearchRequest | None = None,
                   allow_cloud: bool = False,
-                  search_provider: WebSearchProvider | None = None) -> OperatorProposal:
+                  search_provider: WebSearchProvider | None = None,
+                  skill_memory_enabled: bool = True) -> OperatorProposal:
     store = TaskStore(database_file)
     task = store.get(task_id)
     if task.phase not in {TaskPhase.INTAKE, TaskPhase.CLARIFY, TaskPhase.RESEARCH, TaskPhase.DISCUSS}:
@@ -84,6 +85,16 @@ async def propose(task_id: str, *, database_file: Path, router: ModelRouter,
     if task.phase in {TaskPhase.CLARIFY, TaskPhase.DISCUSS} \
             and pending_questions and not task.state.get("clarification_answer"):
         raise TransitionError("Answer the clarification questions first")
+    if skill_memory_enabled and task.phase == TaskPhase.INTAKE:
+        from hive.memory.manager import match_decision, match_skills
+        from hive.memory.store import MemoryStore
+        matches = match_skills(MemoryStore(database_file), task.objective)
+        if matches and match_decision(matches[0][1]) != "normal":
+            skill, score = matches[0]
+            store.patch_state(task_id, {"skill_match": {
+                "skill_id": skill.skill_id, "name": skill.name,
+                "confidence": score, "decision": match_decision(score),
+            }}, event_type="skill_matched")
     report = await research(sources, search_provider=search_provider) if sources else None
     evidence = evidence_context(report.citations)[:20000] if report else "No external sources supplied."
     context = {
@@ -156,7 +167,12 @@ def discuss(task_id: str, note: str, *, database_file: Path) -> None:
         raise TransitionError("Task is not in discussion")
     notes = list(task.state.get("discussion", []))
     notes.append(note.strip())
-    store.patch_state(task_id, {"discussion": notes}, event_type="discussion_note")
+    changes = {"discussion": notes}
+    if note.casefold().strip(" .!") in {
+        "remember this task", "save this as a skill", "do it like this next time",
+    }:
+        changes["remember_skill_after_success"] = True
+    store.patch_state(task_id, changes, event_type="discussion_note")
 
 
 def make_reviewable_plan(task_id: str, *, database_file: Path,
@@ -178,4 +194,12 @@ def make_reviewable_plan(task_id: str, *, database_file: Path,
     store.transition(task_id, TaskPhase.WAIT_APPROVAL,
                      state_patch={"plan_id": plan.plan_id,
                                   "approval_ids": [r.approval_id for r in approvals]})
+    try:
+        from hive.memory.models import TriggerEvent
+        from hive.memory.triggers import TriggerEngine
+        TriggerEngine(database_file).on_event(
+            TriggerEvent.APPROVAL_PENDING, event_key=plan.plan_id,
+            context={"task_id": task_id, "agent_id": task.agent_id})
+    except Exception as exc:
+        store.checkpoint(task_id, "trigger_error", detail=redact(str(exc))[:200])
     return plan, approvals

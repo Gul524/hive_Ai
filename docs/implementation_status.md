@@ -13,6 +13,7 @@ The master plan is implemented as an approval-based CLI with testable adapters. 
 | Browser | Isolated Playwright context, page actions, uploads/downloads, payment and private URL checks, screenshots, cleanup | Fake browser integration tests; Playwright Chromium absent |
 | GUI | Per-agent Xvfb sessions, isolated Firefox launch, approved X11 input, screenshot confidence, cleanup | Fake screen/input tests and real ImageMagick comparison; Xvfb and xdotool absent |
 | Observability and hardening | Doctor, audit, local metrics, trace, redaction, recovery | Automated tests and CLI smoke check |
+| Plan Addendum A: task memory | Local versioned skills, entities, event triggers, approval-gated power actions, improvement proposals, Rich CLI | Automated memory tests; no live power action run |
 
 The following need runtime setup or additional platform work before they can be claimed as live integrations:
 
@@ -22,3 +23,5 @@ The following need runtime setup or additional platform work before they can be 
 4. Run a Fedora package/service plan on a disposable test machine with approvals. Development tests deliberately avoid system changes.
 
 The guided operator currently maps only the allowlisted Fedora actions to executable plans. File changes, browser actions, and GUI actions use their dedicated deterministic plan commands. Other natural-language requests require a manual choice of those commands.
+
+Saved skills compile one deterministic action into a fresh task and plan. Compound procedures and Flutter project creation need a dedicated reviewed plan adapter; they are not executed from saved prose. Matching currently uses local intent/phrase overlap and success history, with no embedding provider configured.

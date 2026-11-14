@@ -26,10 +26,11 @@ from hive.browser.executor import execute_browser_plan
 from hive.gui.plan import GuiPlanStore, create_gui_plan
 from hive.gui.executor import execute_gui_plan
 from hive.cli.render import approval_panel, approval_table, task_panel
+from hive.cli.memory import install_parsers as install_memory_parsers, handle as handle_memory
 from hive.config import load_config
 from hive.config.schema import PathConfig
 from hive.core.approvals import ApprovalStore
-from hive.core.checkpoint import TaskStore
+from hive.core.checkpoint import TaskStore, TransitionError
 from hive.core.diffs import unified_diff
 from hive.core.errors import HiveError
 from hive.core.models import ApprovalRequest, RiskLevel, TaskPhase, utc_now
@@ -61,6 +62,18 @@ def _configured_paths(base: HivePaths, config_paths: PathConfig) -> HivePaths:
         state_dir=(base.state_dir if os.environ.get("HIVE_STATE_DIR") else
                    Path(config_paths.state_dir).expanduser().resolve() if config_paths.state_dir else base.state_dir),
     )
+
+
+def _show_trigger_results(console: Console, database_file: Path, task_id: str) -> None:
+    try:
+        events = TaskStore(database_file).events(task_id)
+    except TransitionError:
+        events = []
+    for event in events:
+        if event["event_type"] == "trigger_notification":
+            console.print(Panel(event["detail"] or "Task event", title="Trigger notification"))
+    for request in ApprovalStore(database_file).list(pending_only=True, task_id=task_id):
+        approval_panel(console, request)
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -256,6 +269,7 @@ def _parser() -> argparse.ArgumentParser:
     config_commands = configuration.add_subparsers(dest="config_command", required=True)
     config_commands.add_parser("show")
     config_commands.add_parser("edit")
+    install_memory_parsers(commands)
     return parser
 
 
@@ -270,6 +284,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         base_paths = resolve_paths()
         config = load_config(paths=base_paths)
         paths = _configured_paths(base_paths, config.paths)
+        if args.command in {"skills", "entities", "triggers", "improvements"}:
+            return handle_memory(args, config, paths, console)
         if args.command == "config-check":
             console.print("[green]Configuration valid[/green]")
             return 0
@@ -348,6 +364,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             ))
             console.print(Panel(result["page"]["text"], title=result["page"]["title"]))
             console.print(f"Screenshots: {result['screenshots']}")
+            _show_trigger_results(console, paths.database_file, store.get(args.plan_id).task_id)
             return 0
         if args.command == "screen":
             manager = LocalScreenManager(paths.database_file, paths.data_dir)
@@ -393,6 +410,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     data_dir=paths.data_dir, audit_file=paths.state_dir / "audit.jsonl"))
                 console.print(f"Before: {result['before']}\nAfter: {result['after']}\n"
                               f"Target confidence: {result['confidence']:.3f}")
+                _show_trigger_results(console, paths.database_file, store.get(args.plan_id).task_id)
                 return 0
             screens = LocalScreenManager(paths.database_file, paths.data_dir)
             screen = screens.get(args.screen_id)
@@ -473,9 +491,18 @@ def main(argv: Sequence[str] | None = None) -> int:
                 result = asyncio.run(propose(
                     args.task_id, database_file=paths.database_file, router=router,
                     model=config.models.local.model, sources=sources,
-                    allow_cloud=args.allow_cloud, search_provider=search_provider))
+                    allow_cloud=args.allow_cloud, search_provider=search_provider,
+                    skill_memory_enabled=config.memory.skill_memory))
                 console.print(Panel(result.model_dump_json(indent=2), title="Operator proposal"))
                 task = TaskStore(paths.database_file).get(args.task_id)
+                if task.state.get("skill_match"):
+                    found = task.state["skill_match"]
+                    prompt = ("This looks similar to a saved skill. Use it? "
+                              if found["decision"] == "ask" else "Suggested saved skill: ")
+                    console.print(Panel(
+                        f"{prompt}{found['name']} ({found['confidence']:.2f}). "
+                        f"Use hive skills plan {found['skill_id']} to review a fresh plan.",
+                        title="Skill memory suggestion"))
                 for source in task.state.get("research_sources", []):
                     console.print(f"Source: {source}")
                 for issue in task.state.get("research_unavailable", []):
@@ -644,6 +671,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 approval_panel(console, item)
             return 0
         if args.command == "run":
+            run_task_id = PlanStore(paths.database_file).get(args.plan_id).task_id
             results = asyncio.run(execute_plan(args.plan_id, database_file=paths.database_file,
                                                audit_file=paths.state_dir / "audit.jsonl",
                                                data_dir=paths.data_dir,
@@ -654,6 +682,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             for result in results:
                 console.print(result)
             console.print("[green]Plan verification passed[/green]")
+            _show_trigger_results(console, paths.database_file, run_task_id)
             return 0
         if args.command == "agents":
             registry = AgentRegistry(paths.database_file)

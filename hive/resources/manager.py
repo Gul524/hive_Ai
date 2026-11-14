@@ -109,6 +109,16 @@ class ResourceManager:
             handle.last_used_at = utc_now()
             self._save(handle)
             self._callbacks.pop(resource_id, None)
+            if verified:
+                try:
+                    from hive.memory.triggers import TriggerEngine
+                    from hive.memory.models import TriggerEvent
+                    TriggerEngine(self.database_file).on_event(
+                        TriggerEvent.RESOURCE_CLEANED, event_key=resource_id,
+                        context={"task_id": handle.task_id, "agent_id": handle.agent_id,
+                                 "resource_id": resource_id})
+                except Exception:
+                    pass  # Cleanup success must not be reversed by a trigger error.
             return verified
 
     async def cleanup_all(self, *, task_id: str) -> list[str]:
@@ -132,3 +142,13 @@ class ResourceManager:
         handle.last_used_at = utc_now()
         self._save(handle)
         self._callbacks.pop(resource_id, None)
+        if verified:
+            try:
+                from hive.memory.triggers import TriggerEngine
+                from hive.memory.models import TriggerEvent
+                TriggerEngine(self.database_file).on_event(
+                    TriggerEvent.RESOURCE_CLEANED, event_key=resource_id,
+                    context={"task_id": handle.task_id, "agent_id": handle.agent_id,
+                             "resource_id": resource_id})
+            except Exception:
+                pass

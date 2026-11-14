@@ -135,6 +135,16 @@ async def execute_browser_plan(plan_id: str, *, database_file: Path,
         if claimed:
             store.finish(plan_id, success=False)
             finish_execution(database_file, plan.task_id, success=False)
+            try:
+                from hive.core.checkpoint import TaskStore
+                from hive.memory.manager import SkillManager
+                from hive.observability.logger import redact
+                skill_id = TaskStore(database_file).get(plan.task_id).state.get("skill_id")
+                if skill_id:
+                    SkillManager(database_file).propose_failure_review(
+                        skill_id, evidence=f"Browser task {plan.task_id}: {redact(str(exc))[:200]}")
+            except Exception:
+                pass
         try:
             leaks = await resources.cleanup_all(task_id=plan.task_id)
         except BaseException as cleanup_exc:

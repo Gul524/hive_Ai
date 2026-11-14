@@ -91,3 +91,19 @@ timeouts:
   command_default_seconds: 300
   sudo_prompt_seconds: 120
   approval_expiry_minutes: 30
+
+memory:
+  session_summaries: true
+  persistent_preference_memory: false
+  skill_memory: true
+  entity_memory: true
+  require_approval_for_new_skill: true
+  require_approval_for_skill_update: true
+  max_skill_versions: 20
+
+triggers:
+  enabled: true
+  require_approval_for_high_risk: true
+  shutdown_command: "systemctl poweroff"
+  reboot_command: "systemctl reboot"
+  suspend_command: "systemctl suspend"

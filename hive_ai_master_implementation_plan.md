@@ -3031,6 +3031,9 @@ Continue one phase at a time.
 
 # 32. Final MVP Target
 
+The additive task memory design and its safety boundaries are specified in
+[Plan Addendum A](docs/plan_addendum_a.md). Existing phases remain unchanged.
+
 The first usable MVP should include:
 
 ```text

@@ -130,6 +130,24 @@ class TimeoutConfig(StrictModel):
     approval_expiry_minutes: int = Field(default=30, gt=0)
 
 
+class MemoryConfig(StrictModel):
+    session_summaries: bool = True
+    persistent_preference_memory: bool = False
+    skill_memory: bool = True
+    entity_memory: bool = True
+    require_approval_for_new_skill: Literal[True] = True
+    require_approval_for_skill_update: Literal[True] = True
+    max_skill_versions: int = Field(default=20, ge=2)
+
+
+class TriggerConfig(StrictModel):
+    enabled: bool = True
+    require_approval_for_high_risk: Literal[True] = True
+    shutdown_command: Literal["systemctl poweroff"] = "systemctl poweroff"
+    reboot_command: Literal["systemctl reboot"] = "systemctl reboot"
+    suspend_command: Literal["systemctl suspend"] = "systemctl suspend"
+
+
 class HiveConfig(StrictModel):
     core: CoreConfig = Field(default_factory=CoreConfig)
     paths: PathConfig = Field(default_factory=PathConfig)
@@ -145,3 +163,5 @@ class HiveConfig(StrictModel):
     gui: GuiConfig = Field(default_factory=GuiConfig)
     voice: VoiceConfig = Field(default_factory=VoiceConfig)
     timeouts: TimeoutConfig = Field(default_factory=TimeoutConfig)
+    memory: MemoryConfig = Field(default_factory=MemoryConfig)
+    triggers: TriggerConfig = Field(default_factory=TriggerConfig)

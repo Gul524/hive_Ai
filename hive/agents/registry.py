@@ -14,6 +14,7 @@ class AgentStatus(StrEnum):
     WORKING = "working"
     WAITING_APPROVAL = "waiting_approval"
     FAILED = "failed"
+    PAUSED = "paused"
 
 
 class Agent(BaseModel):

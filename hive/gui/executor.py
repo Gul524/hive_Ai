@@ -114,6 +114,16 @@ async def execute_gui_plan(
                 cleanup_errors.append(f"screen: {cleanup_exc}")
             store.finish(plan_id, success=False)
             finish_execution(database_file, plan.task_id, success=False)
+            try:
+                from hive.core.checkpoint import TaskStore
+                from hive.memory.manager import SkillManager
+                from hive.observability.logger import redact
+                skill_id = TaskStore(database_file).get(plan.task_id).state.get("skill_id")
+                if skill_id:
+                    SkillManager(database_file).propose_failure_review(
+                        skill_id, evidence=f"GUI task {plan.task_id}: {redact(str(exc))[:200]}")
+            except Exception:
+                pass
         else:
             closed = False
         FailureStore(database_file, database_file.parent / "failed_tasks").add(FailedTaskRecord(

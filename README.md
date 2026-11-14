@@ -117,6 +117,32 @@ Enable `gui.enabled` and install the GUI tools reported by `hive doctor`. Create
 
 The screen is an agent session so later approved tasks can use it. Close it explicitly when finished; `hive watchdog cleanup` closes sessions after 30 minutes of inactivity. GUI action failure closes its screen immediately. GUI input is confined to the virtual X11 display; the Wayland and accessibility adapters remain extension interfaces.
 
+## Task memory and triggers
+
+Completed tasks with a supported plan can be saved as draft skills. A guided discussion note of “Remember this task,” “Save this as a skill,” or “Do it like this next time” saves a draft after the task succeeds. Review the full recipe before approving it. Reuse creates a fresh task, plan, and approval requests.
+
+```bash
+.venv/bin/hive skills save-task TASK_ID --name "Create marker" --phrase "marker banao"
+.venv/bin/hive skills show SKILL_ID
+.venv/bin/hive skills approve SKILL_ID
+.venv/bin/hive skills match "marker banao"
+.venv/bin/hive skills plan SKILL_ID --workspace .
+.venv/bin/hive approval pending
+```
+
+Parameterized recipes accept `--param NAME=VALUE` with `hive skills plan`. Use `hive entities add contact Nani "WhatsApp Nani"` for an inspectable task entity; `hive entities list`, `show`, `update`, and `delete` manage it. Use `hive skills versions SKILL_ID` and `hive skills restore SKILL_ID VERSION` to inspect and restore retained versions. `hive improvements list` shows proposed changes, which require explicit approval before a new skill version is applied.
+
+To request shutdown after one task, add a task-scoped trigger before the task finishes:
+
+```bash
+.venv/bin/hive triggers add --name "Shutdown after task" --event task_completed --action shutdown_laptop --task-id TASK_ID
+.venv/bin/hive triggers pending
+.venv/bin/hive approval approve APPROVAL_ID
+.venv/bin/hive triggers run TRIGGER_ID TASK_ID APPROVAL_ID
+```
+
+The final `triggers run` command issues `systemctl poweroff` after checking the matching, unexpired approval. Command triggers use a normal allowlisted plan and `hive run PLAN_ID`. See [Plan Addendum A](docs/plan_addendum_a.md) for the data model, supported recipe types, and limits.
+
 ## Recovery and diagnostics
 
 ```bash
