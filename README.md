@@ -1,6 +1,6 @@
 # Hive AI
 
-Hive AI is a local-first Linux operator with persistent tasks, reviewable plans, explicit approvals, and constrained execution. Fedora is the primary supported distribution. The [master implementation plan](hive_ai_master_implementation_plan.md) is the product specification.
+Hive AI is a local-first Linux operator with persistent tasks, reviewable plans, explicit approvals, and constrained execution. Fedora is the primary supported distribution. Project docs: [discussion and decisions](docs/DISCUSSION.md) · [progress tracking](docs/TRACKING.md) · [architecture](docs/architecture.md) · [project guide](docs/PROJECT_GUIDE.md).
 
 ## Install
 
@@ -141,7 +141,7 @@ To request shutdown after one task, add a task-scoped trigger before the task fi
 .venv/bin/hive triggers run TRIGGER_ID TASK_ID APPROVAL_ID
 ```
 
-The final `triggers run` command issues `systemctl poweroff` after checking the matching, unexpired approval. Command triggers use a normal allowlisted plan and `hive run PLAN_ID`. See [Plan Addendum A](docs/plan_addendum_a.md) for the data model, supported recipe types, and limits.
+The final `triggers run` command issues `systemctl poweroff` after checking the matching, unexpired approval. Command triggers use a normal allowlisted plan and `hive run PLAN_ID`. See the `hive/memory/` section of the [project guide](docs/PROJECT_GUIDE.md) for the data model and limits.
 
 ## Recovery and diagnostics
 
@@ -155,4 +155,4 @@ The final `triggers run` command issues `systemctl poweroff` after checking the 
 .venv/bin/hive task interrupted
 ```
 
-The watchdog closes expired virtual displays, removes expired locks, and reconciles dead tracked processes. `hive watchdog run` repeats cleanup at the configured interval until stopped. It reports other stale resources for inspection. See [architecture and limits](docs/architecture.md) and [implementation status](docs/implementation_status.md) for verified features and live-runtime checks.
+The watchdog closes expired virtual displays, removes expired locks, and reconciles dead tracked processes. `hive watchdog run` repeats cleanup at the configured interval until stopped. It reports other stale resources for inspection. See [architecture](docs/architecture.md) and [tracking](docs/TRACKING.md) for verified features and live-runtime checks.
