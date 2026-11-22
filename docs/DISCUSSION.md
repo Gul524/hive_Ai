@@ -24,6 +24,10 @@ Hive AI is a **personal manager agent** that runs on the user's PC.
   verify → rollback → audit).
 - It **learns procedures**. The user teaches a task once (for example, checking attendance on
   the university portal), and Hive saves and reuses it.
+- It is **aware** (added 2026-11-22). It always knows today's date, day and time, what work
+  is pending, and what is running right now (tasks, sub-agents, approvals). It **tells the user
+  on its own** about things that are useful to them: deadlines, reminders, and opportunities
+  related to their goals. It only informs and suggests; acting still needs approval.
 - It runs locally for now. Remote access (talking to the manager from anywhere) comes later.
 
 ## 2. How we work (process)
@@ -62,6 +66,8 @@ Hive AI is a **personal manager agent** that runs on the user's PC.
   (see the priority order in Point 1).
 - Don't self-host large open models. This was ruled out as not free on this hardware.
 - Don't retry dangerous or non-idempotent actions automatically.
+- Don't let awareness **act** on its own. Proactive means "tell and suggest", never "do".
+- Don't watch the screen, camera or microphone in the background unless the user turns it on.
 
 ## 4. Closed decisions
 
@@ -111,11 +117,28 @@ This loosens Point 2: the manager's heavy model is the user's choice, and a free
 | B. Official CLI agents | Hive runs `claude -p`, `codex exec` or `gemini` as sub-agents | Uses existing subscriptions. Gemini CLI is free with a Google login. Very strong at coding | These tools have their own tools and can bypass Hive's approvals unless they are restricted to a project folder |
 | **C. Hybrid (recommended)** | Manager = A. Coding sub-agent = B | Safe, swappable manager, and heavy coding on a subscription | More work to build |
 
-**Questions waiting for the user**
+**User answers (2026-11-22):** 1 → **C (hybrid)**. 2 → the user has **Claude Pro** (a
+subscription, no API key).
 
-1. A, B or C?
-2. Which access does the user have now: Claude Pro/Max, ChatGPT Plus, a Gemini API key,
-   an Anthropic or OpenAI API key? This decides the default manager model.
+**What this changes:** Claude Pro does not include API access, so the manager cannot call the
+Anthropic API directly (Option A needs a paid API key). Using the subscription's login token
+inside Hive is against the rules (§3). The official way to use Pro is the `claude` CLI.
+
+**Adjusted hybrid (recommended, waiting for confirmation)**
+
+| Role | Runs on | How |
+|---|---|---|
+| Manager | **Claude (Pro) through the `claude` CLI in headless mode** | `claude -p --input-format stream-json --output-format stream-json`, with built-in tools turned off (`--tools ""`) and **Hive's tools given as an MCP server** (`--mcp-config … --strict-mcp-config`). Claude can then only act through Hive's tools, and every action still goes through Hive's approvals. The conversation continues with `--resume` |
+| Manager fallback | Free Gemini API key (from Google AI Studio) or another free provider | Used when the Pro usage limit is reached or the user switches it in Settings |
+| Coding sub-agent | `claude` CLI with its normal tools, **limited to one project folder** | The same Pro subscription |
+| Research, summaries, awareness (L3) | Free models (Gemini Flash, DeepSeek, Qwen …) | API keys from free tiers, so Pro usage is saved for the manager and coding |
+| Later | Anthropic, OpenAI or Gemini paid API keys | Plug in as API providers through Settings; no redesign needed |
+
+**Caution:** Claude Pro has usage limits that reset every few hours. The manager and the coding
+agent share them. Hive must show the usage, switch to the free fallback when the limit is hit,
+and send light work to free models.
+
+Checked on this PC (2026-11-22): `claude` CLI 2.1.330 supports all the flags above.
 
 Machine facts (checked 2026-11-17): `claude` CLI installed at `~/.local/bin/claude`;
 `codex`, `gemini` and `ollama` are not installed.
@@ -127,8 +150,90 @@ Machine facts (checked 2026-11-17): `claude` CLI installed at `~/.local/bin/clau
 | 4 | Manager ↔ sub-agent protocol: how tasks are handed out, how results come back, the task flow |
 | 5 | Sub-agent roster: which sub-agents exist, which model each one uses, what tools each one gets |
 | 6 | Memory: conversation memory, notes, user profile, skills, and what the manager remembers |
-| 7 | Interface: CLI first? A chat TUI? When do voice and GUI come? |
-| 8 | Research sub-agent design (search sources, free search APIs, citations) |
-| 9 | Coding sub-agent design (CLI agent sandboxing, project folders, test/deploy) |
-| 10 | LMS + WhatsApp design (browser skills, teach-once flow) |
-| 11 | Master plan and phase breakdown |
+| 7 | **Awareness and proactive help** (see draft below) |
+| 8 | Interface: CLI first? A chat TUI? When do voice and GUI come? |
+| 9 | Research sub-agent design (search sources, free search APIs, citations) |
+| 10 | Coding sub-agent design (CLI agent sandboxing, project folders, test/deploy) |
+| 11 | LMS + WhatsApp design (browser skills, teach-once flow) |
+| 12 | Master plan and phase breakdown |
+
+### Point 7 draft: awareness (requested 2026-11-22, not yet discussed)
+
+The user wants Hive to be aware: it knows today's date and day, what work is pending, what is
+happening right now, and it tells the user about work that benefits them.
+
+**Recommended design: three levels**
+
+| Level | What Hive knows or does | How | Cost |
+|---|---|---|---|
+| L1 Context (always on) | Date, day, time, timezone; pending tasks and reminders; running tasks and sub-agents; approvals waiting; basic PC state (battery, RAM, disk) | A "situation snapshot" is built locally and added to every manager prompt | Free, local |
+| L2 Agenda and reminders | To-do list, deadlines (LMS assignments, classes), reminders, a **daily brief** (for example each morning: "aaj yeh kaam hain, yeh deadline kal hai") | A Hive background service (daemon) with a schedule; uses the existing trigger engine; desktop notification | Free, local plus a cheap model for wording |
+| L3 Opportunities | Things useful for the user's goals: relevant news, new tools for current projects, follow-ups the user forgot | The research sub-agent runs once a day on the user's goals and interests from memory, then suggests 2–3 items | Cheap or free model plus search |
+
+**Rules:** awareness informs and suggests only. Every action still goes through approval.
+Screen, camera and microphone watching is off by default (unlike Stonic AI, where it is on).
+
+**User answer (2026-11-22): Hive keeps its own memory register.** Everything is stored and
+managed there: to-dos, reminders, deadlines and plans. Hive reads the register to tell the user
+what to do and what is still left.
+
+**Draft design of the register (to confirm)**
+
+| Item type | Example | Key fields |
+|---|---|---|
+| `todo` | "Hive ka Point 3 decide karna" | title, status (open / doing / done / dropped), priority, due date |
+| `reminder` | "Raat 9 baje assignment check karna" | time, repeat rule (once / daily / weekly), delivered yes/no |
+| `deadline` | "DSA assignment, 25 Nov" | due date and time, source (user / LMS agent), linked task |
+| `plan` | "Hive manager agent build plan" | steps (each with a status), progress %, linked to-dos |
+| `goal` | "Flutter mein expert banna" | description; used by L3 to find useful things |
+| `note` | an idea or a fact to remember | text, tags |
+
+- **Storage:** local SQLite, the same `hive.db` as tasks and skills (a new `register` table
+  group). No cloud and no secrets.
+- **Who adds items:** the user in chat ("kal 5 baje yaad dilana…"), the manager when it plans
+  work, and sub-agents when they find something (for example, the LMS agent finds a new
+  deadline). Items added by an agent are marked with their source, and the user can see,
+  edit or delete them.
+- **How Hive uses it:** L1 puts "today and overdue" items into every manager prompt. L2 fires
+  reminders and builds the daily brief. L3 reads `goal` items to find useful things.
+- **Later:** an optional sync with Google Calendar or other sources. The register stays
+  the main source.
+
+**Questions and answers**
+
+1. Where do tasks come from? → **Hive's own memory register.**
+2. How should Hive notify? → **The user controls it in Settings.** Default: a desktop
+   notification plus a message in the chat. Voice is added later as a Settings option.
+3. When should the daily brief come, and how often do L3 suggestions come? → **The user controls
+   it in Settings.** Default: the brief at 08:00 (or at first login if the PC was off), and L3
+   once a day.
+
+Point 7 is considered closed with these defaults unless the user changes them.
+
+## 6. Cross-cutting decisions
+
+### Settings (decided 2026-11-22)
+
+Hive has **its own Settings**. Every variable, key and option is managed and controlled from
+there, not by editing code.
+
+| Settings section | Examples |
+|---|---|
+| Models and keys | Connect or disconnect Claude, OpenAI, Gemini or free providers; pick the manager model; free fallback on/off |
+| Awareness | L1/L2/L3 on/off, daily brief time, L3 frequency, notification channel (desktop, chat, voice), quiet hours |
+| Register | Default reminder lead time, auto-archive of done items |
+| Sub-agents | Which ones are enabled, the model for each, the maximum number running in parallel |
+| Safety | Approval expiry, risk levels that need a step approval, allowed workspaces |
+| Privacy | Screen, camera and microphone watching (off by default), what may be sent to cloud models |
+| Voice, browser, GUI | The existing options already in `config.yaml` |
+
+**How it is stored (recommended):**
+- Normal settings go in `~/.config/hive/config.yaml`, validated by `hive/config/schema.py`.
+  This already exists, together with `hive config show` and `hive config edit`.
+- **API keys and passwords never go in the YAML file.** They are stored in the Linux keyring
+  (GNOME Keyring / Secret Service). Settings only show whether a key is connected and can test
+  or remove it.
+- Interface: first a `hive settings` command (view, set, test, connect key). Later a settings
+  screen in the TUI/GUI (Point 8).
+- Changes apply at runtime where possible (for example, connecting a new model), without
+  restarting Hive.

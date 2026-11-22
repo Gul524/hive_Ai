@@ -9,7 +9,7 @@ Related files: [DISCUSSION.md](DISCUSSION.md) (decisions) · [architecture.md](a
 [PROJECT_GUIDE.md](PROJECT_GUIDE.md)
 
 Legend: ✅ done and tested · 🟡 code done, live check pending · ⚠️ partial · ⬜ not started ·
-🗣️ under discussion
+🗣️ under discussion · 📝 drafted, waiting for discussion
 
 ---
 
@@ -17,7 +17,7 @@ Legend: ✅ done and tested · 🟡 code done, live check pending · ⚠️ part
 
 | Area | Status | Done |
 |---|---|---|
-| Planning (discussion points 1–11) | 🗣️ Points 1–2 closed, Point 3 open | ~20% |
+| Planning (discussion points 1–12) | 🗣️ Points 1, 2, 7 and Settings closed; Point 3 open | ~30% |
 | Safety kernel (tasks, approvals, executor, rollback, audit) | ✅ | ~95% |
 | Old master plan, phases 0–16 + Addendum A (code) | ⚠️ | ~85% |
 | Live verification against real runtimes | ⚠️ | ~35% |
@@ -34,15 +34,17 @@ layer on top of it.
 |---|---|---|---|
 | 1 | Scope, use cases, priorities | ✅ Closed 2026-11-14 | See DISCUSSION.md §4 |
 | 2 | Cost: free first, paid optional | ✅ Closed 2026-11-14 | See DISCUSSION.md §4 |
-| 3 | How the manager reaches a heavy model | 🗣️ Open | Recommendation: hybrid (API manager + CLI coding agents) |
+| 3 | How the manager reaches a heavy model | 🗣️ Decided: hybrid · user has Claude Pro | Adjusted design waiting for confirmation: manager = `claude` CLI (Pro) with Hive tools via MCP; fallback = free Gemini key; research = free models |
 | 4 | Manager ↔ sub-agent protocol | ⬜ | |
 | 5 | Sub-agent roster and models | ⬜ | |
 | 6 | Memory design | ⬜ | |
-| 7 | Interface (CLI/TUI/voice/GUI) | ⬜ | |
-| 8 | Research sub-agent | ⬜ | |
-| 9 | Coding sub-agent | ⬜ | |
-| 10 | LMS + WhatsApp | ⬜ | |
-| 11 | Master plan and phases | ⬜ | |
+| 7 | Awareness and proactive help | ✅ Closed 2026-11-22 | 3 levels (context, agenda/daily brief, opportunities); Hive's own memory register; notification channel and brief time set in Settings (defaults: desktop + chat, 08:00) |
+| — | Settings (cross-cutting) | ✅ Decided 2026-11-22 | All variables, keys and options managed from Hive's own Settings; keys in the Linux keyring, not YAML |
+| 8 | Interface (CLI/TUI/voice/GUI) | ⬜ | |
+| 9 | Research sub-agent | ⬜ | |
+| 10 | Coding sub-agent | ⬜ | |
+| 11 | LMS + WhatsApp | ⬜ | |
+| 12 | Master plan and phases | ⬜ | |
 
 ## 3. Existing code: old master plan phases
 
@@ -69,21 +71,27 @@ layer on top of it.
 
 ## 4. New goal: manager agent work items
 
-The final phase list comes with Point 11. This is the expected shape, so we can track it now.
+The final phase list comes with Point 12. This is the expected shape, so we can track it now.
 
 | # | Work item | Status | Depends on |
 |---|---|---|---|
-| M1 | Provider layer: Anthropic, OpenAI, Gemini providers with **tool calling**; runtime connect/disconnect; free fallback | ⬜ | Point 3 |
+| M0 | **Settings**: `hive settings` (view, set, test), keyring storage for API keys, runtime reload; new sections for models, awareness, register, sub-agents, privacy | ⬜ | Settings decision |
+| M1 | Provider layer: **Claude CLI provider** (headless, stream-json, session resume, usage-limit detection); Gemini and OpenAI-compatible providers with **tool calling**; runtime connect/disconnect; free fallback | ⬜ | Point 3 |
+| M1b | **Hive MCP server**: exposes Hive's tools (register, research, propose_plan, ask_user, spawn_subagent) to the Claude CLI manager | ⬜ | M1, Point 4 |
 | M2 | Router rework: "heavy first" for the manager, "cheap first" for sub-agents | ⬜ | M1 |
 | M3 | Manager loop: conversation, tool calls (`ask_user`, `spawn_subagent`, `research`, `propose_plan`, `save_skill`) | ⬜ | M1, Point 4 |
 | M4 | Sub-agent runtime: wire `Scheduler` + `LockStore`, run agents in parallel, return results | ⬜ | M3, Point 5 |
 | M5 | Conversation memory and notes | ⬜ | Point 6 |
-| M6 | Research sub-agent (live search, citations) | ⬜ | Point 8 |
-| M7 | Coding sub-agent (CLI agents in a sandboxed project folder) | ⬜ | Point 9 |
-| M8 | LMS browser skills (teach once, reuse) | ⬜ | Point 10, browser live |
-| M9 | WhatsApp sub-agent | ⬜ | Point 10 |
+| M6 | Research sub-agent (live search, citations) | ⬜ | Point 9 |
+| M7 | Coding sub-agent (CLI agents in a sandboxed project folder) | ⬜ | Point 10 |
+| M8 | LMS browser skills (teach once, reuse) | ⬜ | Point 11, browser live |
+| M9 | WhatsApp sub-agent | ⬜ | Point 11 |
 | M10 | Documents and files sub-agent | ⬜ | |
-| M11 | Voice, GUI, remote access | ⬜ | Last priority |
+| M10a | **Memory register**: SQLite store for todo, reminder, deadline, plan, goal and note items; CLI and manager tools to add, list, update and complete them | ⬜ | Point 7 |
+| M11 | Awareness L1: situation snapshot (date, day, today's and overdue register items, running agents, PC state) in every manager prompt | ⬜ | M3, M10a |
+| M12 | Awareness L2: background daemon, reminders from the register, daily brief, notifications | ⬜ | M10a, Point 7 |
+| M13 | Awareness L3: daily opportunity finder from user goals | ⬜ | M6, Point 7 |
+| M14 | Voice, GUI, remote access | ⬜ | Last priority |
 
 ## 5. Known gaps and housekeeping
 
@@ -95,7 +103,7 @@ The final phase list comes with Point 11. This is the expected shape, so we can 
 - [ ] `note.txt` contains only "hello" and can be removed.
 - [x] Removed outdated docs (2026-11-17): `hive_ai_master_implementation_plan.md`,
   `docs/project_report.md`, `docs/implementation_status.md`, `docs/plan_addendum_a.md`.
-  They remain in git history (commit `f9556e7`). The new master plan comes with Point 11.
+  They remain in git history (commit `f9556e7`). The new master plan comes with Point 12.
 
 ## 6. Change log
 
@@ -104,3 +112,7 @@ The final phase list comes with Point 11. This is the expected shape, so we can 
 | 2026-10-07 | Phases 0–16 implemented (commits `4073e59` → `38d2cf1`) |
 | 2026-11-14 | Addendum A (task memory) committed (`f9556e7`). New goal defined: manager agent. Points 1 and 2 closed |
 | 2026-11-17 | Point 3 opened (heavy model for the manager). These four docs created; outdated docs removed |
+| 2026-11-22 | Awareness requirement added: Point 7 drafted, work items M11–M13 added |
+| 2026-11-22 | Point 7: memory register decided (Hive's own store for to-dos, reminders, deadlines, plans); work item M10a added |
+| 2026-11-22 | Point 7 closed (notify and brief time via Settings). Settings decision added; work item M0 added |
+| 2026-11-22 | Point 3: hybrid chosen; user has Claude Pro → manager through the `claude` CLI + Hive MCP server (M1b added), free Gemini fallback |

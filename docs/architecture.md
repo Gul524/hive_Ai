@@ -44,6 +44,19 @@ Hive has two layers:
                     Fedora PC: packages, services, files, browser, GUI
 ```
 
+**Awareness (planned, Point 7)** sits beside the manager:
+
+```
+ ┌─────────────── AWARENESS (background daemon) ───────────────┐
+ │ L1 Situation snapshot: date · day · time · pending tasks ·   │──▶ added to every
+ │    running sub-agents · approvals waiting · PC state         │    manager prompt
+ │ L2 Agenda: reminders · deadlines · daily brief (scheduler +  │──▶ desktop notification
+ │    existing trigger engine)                                  │    / chat message
+ │ L3 Opportunities: daily research on the user's goals         │──▶ 2–3 suggestions
+ └──────────────────────────────────────────────────────────────┘
+   Informs and suggests only. Any action goes through the kernel's approvals.
+```
+
 Box status: the kernel exists and is tested. The manager, the sub-agent runtime and the
 heavy-model providers are the next work (see [TRACKING.md](TRACKING.md) §4).
 
